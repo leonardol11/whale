@@ -311,6 +311,23 @@
       fetchWalletStats(w).finally(() => { statsActive--; pumpStats(); });
     }
   }
+  // conditionId -> winning outcomeIndex, or null if market not resolved yet
+  const winnerMap = new Map();
+  async function lookupWinners(cids){
+    const need = cids.filter(c => c && !winnerMap.has(c));
+    for (let i = 0; i < need.length; i += 40){
+      const chunk = need.slice(i, i + 40);
+      const ms = await gammaLookup(chunk, true);   // resolved markets only
+      for (const m of ms){
+        let prices;
+        try { prices = JSON.parse(m.outcomePrices).map(Number); } catch(e){ continue; }
+        const hi = Math.max(...prices);
+        if (hi >= 0.99) winnerMap.set(m.conditionId, prices.indexOf(hi));
+      }
+      chunk.forEach(c => { if (!winnerMap.has(c)) winnerMap.set(c, null); });
+    }
+  }
+
   async function fetchWalletStats(w){
     try {
       const u = new URL(API);
@@ -321,10 +338,24 @@
       const res = await fetch(u, {cache:"no-store"});
       if (!res.ok) throw new Error();
       const d = await res.json();
-      const vals = Array.isArray(d) ? d.map(t => t.size * t.price) : [];
-      walletStats.set(w, vals.length ? { avg: vals.reduce((a,b)=>a+b,0)/vals.length, n: vals.length, min: Math.min(...vals), max: Math.max(...vals) } : { avg:0, n:0 });
+      const trades = Array.isArray(d) ? d : [];
+      const vals = trades.map(t => t.size * t.price);
+      // win rate: of these trades whose market has resolved, how many were on the winning side
+      let wins = 0, resolved = 0;
+      try {
+        await lookupWinners([...new Set(trades.map(t => t.conditionId))]);
+        for (const t of trades){
+          const wi = winnerMap.get(t.conditionId);
+          if (wi == null) continue;
+          resolved++;
+          if (t.side === "BUY" ? t.outcomeIndex === wi : t.outcomeIndex !== wi) wins++;
+        }
+      } catch(e) { /* win rate unavailable this round */ }
+      walletStats.set(w, vals.length
+        ? { avg: vals.reduce((a,b)=>a+b,0)/vals.length, n: vals.length, min: Math.min(...vals), max: Math.max(...vals), wins, resolved }
+        : { avg:0, n:0, wins, resolved });
     } catch(e) {
-      walletStats.set(w, { avg:0, n:0 });   // don't retry on failure
+      walletStats.set(w, { avg:0, n:0, wins:0, resolved:0 });   // don't retry on failure
     }
     if (!statsRenderTimer) statsRenderTimer = setTimeout(() => { statsRenderTimer = null; render(); }, 400);
   }
@@ -518,7 +549,13 @@
           ${marketStatus(t) === "resolved" ? '<span class="pill resolved">Resolved</span>' : ""}
           ${tag}
           <a class="trader" href="${profileUrl(t.proxyWallet)}" target="_blank" title="${t.proxyWallet}">${esc(traderName(t))}</a>
-          ${(() => { const s = walletStats.get(t.proxyWallet); return s && s.n ? '<span class="avg" title="From this trader\'s last ' + s.n + ' trades">(avg ' + fmtUSD(s.avg) + ', low ' + fmtUSD(s.min) + ', high ' + fmtUSD(s.max) + ')</span>' : ""; })()}
+          ${(() => {
+            const s = walletStats.get(t.proxyWallet);
+            if (!s || !s.n) return "";
+            const win = s.resolved ? Math.round(100 * s.wins / s.resolved) + "% win" : "win —";
+            const tip = "From this trader's last " + s.n + " trades" + (s.resolved ? "; win rate over the " + s.resolved + " of those already resolved" : "");
+            return '<span class="avg" title="' + tip + '">(' + win + ', avg ' + fmtUSD(s.avg) + ', low ' + fmtUSD(s.min) + ', high ' + fmtUSD(s.max) + ')</span>';
+          })()}
         </div>
       </div>
       <div class="right">
