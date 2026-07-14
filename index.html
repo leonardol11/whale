@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Polymarket Whale Watch</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐋</text></svg>" />
+<style>
+  :root{
+    --bg:#f4f5f7; --panel:#ffffff; --panel2:#f7f8fa; --line:#e4e7ec; --line2:#eef0f3;
+    --txt:#1a1f29; --dim:#5b6675; --dimmer:#98a2b3;
+    --buy:#0f8a4f; --buy-bg:#e9f6ef; --sell:#d13c3c; --sell-bg:#fdecec;
+    --accent:#2f6fed; --accent-bg:#eef3fe; --amber:#9a6a00; --amber-bg:#fdf3d8;
+    --shadow:0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.04);
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --num:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --whopper-bg:#fffdf6; --flash:#eaf1fe; color-scheme:light;
+  }
+  html[data-theme="dark"]{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1b2029; --line:#2a313c; --line2:#20262f;
+    --txt:#e6e9ef; --dim:#9aa4b2; --dimmer:#5f6b7a;
+    --buy:#3fb950; --buy-bg:rgba(63,185,80,.14); --sell:#e5534b; --sell-bg:rgba(229,83,75,.14);
+    --accent:#4c8dff; --accent-bg:rgba(76,141,255,.16); --amber:#e3b341; --amber-bg:rgba(227,179,65,.16);
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+    --whopper-bg:rgba(227,179,65,.05); --flash:rgba(76,141,255,.18); color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .num{font-variant-numeric:tabular-nums}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px 22px 64px}
+
+  /* Header */
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-bottom:16px;border-bottom:1px solid var(--line)}
+  .brand{font-size:17px;font-weight:650;letter-spacing:-.2px;display:flex;align-items:center;gap:8px;color:var(--txt)}
+  .brand .whale{font-size:20px}
+  .live{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;letter-spacing:.4px;
+    padding:5px 10px;border:1px solid var(--line);border-radius:6px;color:var(--buy);background:var(--panel);cursor:pointer;user-select:none}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--buy);animation:pulse 2s ease-in-out infinite}
+  .live.paused{color:var(--dimmer)}
+  .live.paused .dot{background:var(--dimmer);animation:none}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .spacer{flex:1}
+  .stats{display:flex;gap:18px;align-items:center}
+  .stat{font-size:12px;color:var(--dim)}
+  .stat b{display:block;font-size:15px;font-weight:650;color:var(--txt);font-variant-numeric:tabular-nums;line-height:1.2}
+  .updated{font-size:11px;color:var(--dimmer);font-variant-numeric:tabular-nums}
+
+  /* Controls */
+  .controls{display:flex;align-items:flex-end;gap:22px 26px;flex-wrap:wrap;padding:16px 0;border-bottom:1px solid var(--line)}
+  .ctl{display:flex;flex-direction:column;gap:7px}
+  .ctl label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--dim)}
+  .row-ctl{display:flex;align-items:center;gap:8px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+  .seg button{background:transparent;color:var(--dim);border:0;border-right:1px solid var(--line);padding:7px 12px;font-size:13px;
+    cursor:pointer;font-family:var(--sans);font-variant-numeric:tabular-nums;transition:.1s}
+  .seg button:last-child{border-right:0}
+  .seg button:hover{background:var(--panel2);color:var(--txt)}
+  .seg button.on{background:var(--accent);color:#fff;font-weight:600}
+  .field{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:0 4px 0 9px}
+  .field .cur{color:var(--dimmer);font-size:13px}
+  .field input{border:0;outline:0;background:transparent;color:var(--txt);font-size:13px;font-family:var(--num);width:78px;padding:7px 4px}
+  .field input::placeholder{color:var(--dimmer);font-family:var(--sans)}
+  .controls .break{flex-basis:100%;height:0}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{font-size:13px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+    color:var(--dim);cursor:pointer;user-select:none;transition:.1s}
+  .chip:hover{background:var(--panel2)}
+  .chip.on{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);font-weight:600}
+  .chip.check::before{content:"✓";margin-right:6px;color:var(--dimmer)}
+  .chip.check.on::before{color:var(--accent)}
+  select{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;font-family:var(--sans)}
+
+  /* Layout */
+  .grid{display:grid;grid-template-columns:1fr 330px;gap:20px;margin-top:20px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .col-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--dim);margin:0 0 12px;display:flex;align-items:baseline;gap:8px}
+  .col-title .count{color:var(--dimmer);font-weight:500;font-variant-numeric:tabular-nums}
+
+  /* Feed table */
+  #feed{display:flex;flex-direction:column;gap:1px;background:var(--line2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .row{display:grid;grid-template-columns:76px 1fr 150px;gap:16px;align-items:center;background:var(--panel);padding:12px 16px;position:relative}
+  .row.whopper{background:var(--whopper-bg)}
+  @keyframes flash{0%{background:var(--flash)}100%{}}
+  .row.fresh{animation:flash 2.4s ease-out}
+  .sidebox{display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+  .side{font-size:11px;font-weight:700;letter-spacing:.5px;padding:2px 8px;border-radius:5px}
+  .side.buy{color:var(--buy);background:var(--buy-bg)}
+  .side.sell{color:var(--sell);background:var(--sell-bg)}
+  .ago{font-size:11px;color:var(--dimmer);font-variant-numeric:tabular-nums;padding-left:2px}
+  .mid{min-width:0}
+  .mkt{font-weight:600;font-size:14px;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .meta{display:flex;align-items:center;gap:7px;margin-top:5px;flex-wrap:wrap;font-size:12px;color:var(--dim)}
+  .pill{font-size:11px;padding:2px 7px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);color:var(--dim)}
+  .pill.out{color:var(--txt);font-weight:500}
+  .pill.resolved{color:var(--amber);background:var(--amber-bg);border-color:transparent}
+  .trader{color:var(--accent);font-weight:500}
+  .trader:hover{text-decoration:underline}
+  .avg{color:var(--dimmer);font-size:11px;margin-left:1px}
+  .tag{font-size:10px;font-weight:700;letter-spacing:.4px;padding:2px 6px;border-radius:4px}
+  .tag.longshot{color:var(--amber);background:var(--amber-bg)}
+  .tag.fav{color:var(--dim);background:var(--panel2);border:1px solid var(--line)}
+  .right{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+  .usd{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+  .usd.buy{color:var(--buy)} .usd.sell{color:var(--sell)}
+  .price{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .trade-btn{margin-top:5px;font-size:11px;font-weight:600;padding:5px 11px;border-radius:6px;background:var(--panel);border:1px solid var(--line);color:var(--accent)}
+  .trade-btn:hover{background:var(--accent-bg);border-color:var(--accent)}
+
+  /* Leaderboard */
+  aside{position:sticky;top:16px;align-self:start}
+  .board{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .lrow{display:grid;grid-template-columns:20px 1fr auto;gap:11px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--line2)}
+  .lrow:last-child{border-bottom:0}
+  .lrow:hover{background:var(--panel2)}
+  .rank{font-size:12px;color:var(--dimmer);text-align:right;font-variant-numeric:tabular-nums}
+  .lname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;color:var(--txt)}
+  .lsub{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;margin-top:1px}
+  .lusd{font-weight:700;text-align:right;font-size:13px;font-variant-numeric:tabular-nums;color:var(--txt)}
+  .netbuy{color:var(--buy)} .netsell{color:var(--sell)}
+  .empty{color:var(--dimmer);text-align:center;padding:44px 12px;font-size:13px}
+  footer{margin-top:28px;color:var(--dimmer);font-size:12px;text-align:center;line-height:1.7}
+  footer a{color:var(--dim);text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><span class="whale">🐋</span> Polymarket Whale Watch</div>
+    <div id="liveBtn" class="live" title="Click to pause / resume"><span class="dot"></span><span id="liveTxt">LIVE</span></div>
+    <div class="seg theme" id="themeSeg" title="Theme"><button data-theme="light">Light</button><button data-theme="dark">Dark</button></div>
+    <div class="spacer"></div>
+    <div class="stats">
+      <div class="stat">Whales in view<b id="statCount" class="num">0</b></div>
+      <div class="stat">Notional<b id="statVol" class="num">$0</b></div>
+    </div>
+    <div class="updated" id="updated">connecting…</div>
+  </header>
+
+  <div class="controls">
+    <div class="ctl">
+      <label>Minimum trade size</label>
+      <div class="row-ctl">
+        <div class="seg" id="sizePresets"></div>
+        <div class="field" title="Type any custom minimum">
+          <span class="cur">$</span><input type="number" id="minInput" min="0" step="1000" placeholder="custom" />
+        </div>
+      </div>
+    </div>
+    <div class="ctl">
+      <label>Maximum (optional)</label>
+      <div class="field" title="Leave blank for no upper limit">
+        <span class="cur">$</span><input type="number" id="maxInput" min="0" step="1000" placeholder="no limit" />
+      </div>
+    </div>
+    <div class="ctl">
+      <label>Side</label>
+      <div class="seg" id="sideSeg">
+        <button data-side="ALL" class="on">All</button>
+        <button data-side="BUY">Buys</button>
+        <button data-side="SELL">Sells</button>
+      </div>
+    </div>
+    <div class="break"></div>
+    <div class="ctl">
+      <label>Category</label>
+      <div class="chips" id="cats"></div>
+    </div>
+    <div class="ctl">
+      <label>Implied odds</label>
+      <div class="seg" id="oddsSeg">
+        <button data-mode="any" class="on">Any</button>
+        <button data-mode="below">Under 50%</button>
+        <button data-mode="above">Over 50%</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <label>Market</label>
+      <div class="chips" id="statusChips">
+        <span class="chip check on" data-status="active">Active</span>
+        <span class="chip check on" data-status="resolved">Resolved</span>
+      </div>
+    </div>
+    <div class="ctl">
+      <label>Trader</label>
+      <div class="chips">
+        <span class="chip check" id="nearHighChip" title="Only trades at or within 25% of this trader's recent high — i.e. their biggest bets">Near their high</span>
+      </div>
+    </div>
+    <div class="ctl">
+      <label>Refresh</label>
+      <select id="interval">
+        <option value="8">Every 8s</option>
+        <option value="15" selected>Every 15s</option>
+        <option value="30">Every 30s</option>
+        <option value="60">Every 60s</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="grid">
+    <main>
+      <h2 class="col-title">Live trades <span class="count" id="feedCount"></span></h2>
+      <div id="feed"></div>
+    </main>
+    <aside>
+      <h2 class="col-title">Most active wallets <span class="count">recent</span></h2>
+      <div class="board" id="board"></div>
+    </aside>
+  </div>
+
+  <footer>
+    Source: <a href="https://docs.polymarket.com/api-reference/core/get-trades-for-a-user-or-markets" target="_blank">Polymarket public Data API</a> — live, no account required.
+    Notional = size × price. Not financial advice.
+  </footer>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const API = "https://data-api.polymarket.com/trades";
+  const MAX_BUFFER = 500;
+  const FETCH_LIMIT = 250;
+  const PRESETS = [10000, 25000, 50000, 100000, 250000, 500000];
+
+  const state = {
+    threshold: 50000,
+    maxSize: null,
+    side: "ALL",
+    cats: new Set(["Politics","Sports","Crypto","Business","Tech","Culture","World","Science","Other"]),
+    statuses: new Set(["active","resolved"]),
+    oddsMode: "any",
+    oddsPivot: 50,
+    nearHigh: false,
+    intervalSec: 15,
+    paused: false,
+    trades: new Map(),
+    order: [],
+    timer: null,
+    lastFetch: 0,
+  };
+
+  // ---- market status (active vs resolved) via Gamma API ----
+  const GAMMA = "https://gamma-api.polymarket.com/markets";
+  const statusMap = new Map();   // conditionId -> "active" | "resolved"
+  let enriching = false;
+  const marketStatus = t => statusMap.get(t.conditionId) === "resolved" ? "resolved" : "active";
+
+  async function gammaLookup(cids, closed){
+    const p = new URLSearchParams();
+    p.set("limit", "100");
+    p.set("closed", closed ? "true" : "false");
+    cids.forEach(c => p.append("condition_ids", c));
+    p.set("_t", Date.now());
+    const res = await fetch(GAMMA + "?" + p.toString(), {cache:"no-store"});
+    if (!res.ok) throw new Error("gamma " + res.status);
+    return await res.json();
+  }
+
+  async function enrichStatuses(){
+    if (enriching) return;
+    const need = [], seen = new Set();
+    for (const k of state.order){
+      const cid = state.trades.get(k).conditionId;
+      if (!cid || statusMap.has(cid) || seen.has(cid)) continue;
+      seen.add(cid); need.push(cid);
+    }
+    if (!need.length) return;
+    enriching = true;
+    try {
+      for (let i = 0; i < need.length; i += 40){
+        const chunk = need.slice(i, i + 40);
+        const active = await gammaLookup(chunk, false);          // open markets
+        const activeSet = new Set(active.map(m => m.conditionId));
+        chunk.forEach(c => { if (activeSet.has(c)) statusMap.set(c, "active"); });
+        const rest = chunk.filter(c => !statusMap.has(c));
+        if (rest.length){
+          const closed = await gammaLookup(rest, true);          // resolved markets
+          const closedSet = new Set(closed.map(m => m.conditionId));
+          rest.forEach(c => statusMap.set(c, closedSet.has(c) ? "resolved" : "active"));
+        }
+      }
+      render();
+    } catch(e) {
+      /* leave unknown — treated as active */
+    } finally {
+      enriching = false;
+    }
+  }
+
+  // ---- historical average bet size per wallet (Data API ?user=) ----
+  const walletStats = new Map();   // wallet -> {avg,n} | "pending"
+  const statsQueue = [];
+  let statsActive = 0, statsRenderTimer = null;
+  const STATS_CONCURRENCY = 4;
+
+  function queueWalletStats(){
+    const seen = new Set();
+    for (const k of state.order){
+      const w = state.trades.get(k).proxyWallet;
+      if (!w || walletStats.has(w) || seen.has(w)) continue;
+      seen.add(w); walletStats.set(w, "pending"); statsQueue.push(w);
+    }
+    pumpStats();
+  }
+  function pumpStats(){
+    while (statsActive < STATS_CONCURRENCY && statsQueue.length){
+      const w = statsQueue.shift();
+      statsActive++;
+      fetchWalletStats(w).finally(() => { statsActive--; pumpStats(); });
+    }
+  }
+  async function fetchWalletStats(w){
+    try {
+      const u = new URL(API);
+      u.searchParams.set("user", w);
+      u.searchParams.set("limit", "100");
+      u.searchParams.set("takerOnly", "true");
+      u.searchParams.set("_t", Date.now());
+      const res = await fetch(u, {cache:"no-store"});
+      if (!res.ok) throw new Error();
+      const d = await res.json();
+      const vals = Array.isArray(d) ? d.map(t => t.size * t.price) : [];
+      walletStats.set(w, vals.length ? { avg: vals.reduce((a,b)=>a+b,0)/vals.length, n: vals.length, min: Math.min(...vals), max: Math.max(...vals) } : { avg:0, n:0 });
+    } catch(e) {
+      walletStats.set(w, { avg:0, n:0 });   // don't retry on failure
+    }
+    if (!statsRenderTimer) statsRenderTimer = setTimeout(() => { statsRenderTimer = null; render(); }, 400);
+  }
+
+  // ---- category classifier ----
+  const RE = {
+    crypto: /(\bbtc\b|\beth\b|\bsol\b|\bxrp\b|\bdoge\b|bitcoin|ethereum|solana|crypto|updown|-up-or-down|coinbase|binance|\bath\b|price-of)/,
+    politics: /(trump|biden|harris|election|president|senate|congress|\bgop\b|democrat|republican|governor|parliament|putin|zelensky|ukraine|israel|gaza|nato|fomc|federal-reserve|rate-cut|rate-hike|interest-rate|nyc-mayor|mamdani|supreme-court|impeach|shutdown|tariff|\bpm\b|prime-minister|geopolit)/,
+    sports: /(\bmlb\b|\bnba\b|\bnfl\b|\bnhl\b|\bncaa\b|\bepl\b|\bucl\b|uefa|laliga|la-liga|seriea|serie-a|bundesliga|ligue|fifa|fifwc|world-cup|\batp\b|\bwta\b|tennis|wimbledon|\bufc\b|\bmma\b|boxing|formula|\bf1\b|nascar|\bgolf\b|\bpga\b|soccer|football|baseball|basketball|hockey|cricket|rugby|\blol\b|cs2|csgo|dota|valorant|esports|premier-league|champions-league|vs\.| vs )/,
+  };
+  function classify(t){
+    const s = (t.slug + " " + (t.eventSlug||"") + " " + (t.title||"")).toLowerCase();
+    if (RE.crypto.test(s)) return "Crypto";
+    if (RE.politics.test(s)) return "Politics";
+    if (RE.sports.test(s)) return "Sports";
+    return "Other";
+  }
+  const CAT_LIST = ["Politics","Sports","Crypto","Business","Tech","Culture","World","Science","Other"];
+
+  // ---- real category from Polymarket event tags (Gamma /events) ----
+  const catMap = new Map();   // eventSlug -> category string | null (looked up, no tag match)
+  let catEnriching = false;
+  const CAT_RULES = [
+    ["Sports",   /\b(sports?|games?|mlb|nba|nfl|nhl|ncaa|soccer|football|baseball|basketball|hockey|tennis|golf|pga|ufc|mma|boxing|formula|f1|nascar|cricket|rugby|olympic|epl|ucl|uefa|la ?liga|serie ?a|bundesliga|esports|lol|cs2|csgo|dota|valorant|wimbledon|atp|wta)\b/],
+    ["Crypto",   /\b(crypto|bitcoin|ethereum|altcoins?|solana|defi|nft|stablecoin|memecoin)\b/],
+    ["Politics", /\b(politics|elections?|trump|biden|harris|congress|senate|president|potus|government|governor|supreme court|house races|impeach|democrat|republican)\b/],
+    ["Tech",     /\b(tech|ai|artificial intelligence|openai|chatgpt|gpt|claude|llm|semiconductor|chips?|software|nvidia)\b/],
+    ["Business", /\b(business|finance|earnings|ipos?|stocks?|economy|economic|fed|inflation|gdp|recession|mergers?|acquisition|nasdaq|interest rate)\b/],
+    ["Culture",  /\b(pop culture|culture|movies?|music|tv|television|awards?|oscars?|grammys?|celebrit|entertainment|mentions|box office|netflix|spotify|album)\b/],
+    ["Science",  /\b(science|space|nasa|spacex|health|medicine|disease|covid|climate|weather|temperature|hurricane|earthquake)\b/],
+    ["World",    /\b(world|geopolitics|war|israel|gaza|ukraine|russia|china|middle east|international|nato|foreign|europe)\b/],
+  ];
+  function tagsToCat(labels){
+    for (const [cat, re] of CAT_RULES) if (re.test(labels)) return cat;
+    return "Other";
+  }
+  function catOf(t){
+    const es = t.eventSlug;
+    if (es && catMap.has(es)){ const c = catMap.get(es); if (c) return c; }
+    return t._catH;   // heuristic fallback (no event, not looked up yet, or no tag match)
+  }
+  async function enrichCategories(){
+    if (catEnriching) return;
+    const need = [], seen = new Set();
+    for (const k of state.order){
+      const es = state.trades.get(k).eventSlug;
+      if (!es || catMap.has(es) || seen.has(es)) continue;
+      seen.add(es); need.push(es);
+    }
+    if (!need.length) return;
+    catEnriching = true;
+    try {
+      for (let i = 0; i < need.length; i += 20){
+        const chunk = need.slice(i, i + 20);
+        try {
+          const p = new URLSearchParams();
+          p.set("limit", "100");
+          chunk.forEach(s => p.append("slug", s));
+          p.set("_t", Date.now());
+          const res = await fetch("https://gamma-api.polymarket.com/events?" + p.toString(), {cache:"no-store"});
+          if (!res.ok) throw new Error();
+          const evs = await res.json();
+          const found = new Map();
+          for (const e of (Array.isArray(evs) ? evs : [])){
+            const labels = (e.tags || []).map(x => (x.label||"").toLowerCase()).join(" | ");
+            found.set(e.slug, tagsToCat(labels));
+          }
+          chunk.forEach(s => catMap.set(s, found.has(s) ? found.get(s) : null));
+        } catch(e) { /* chunk failed — retry next poll */ }
+      }
+      render();
+    } finally {
+      catEnriching = false;
+    }
+  }
+
+  // ---- helpers ----
+  const fmtUSD = n => {
+    if (n >= 1e6) return "$" + (n/1e6).toFixed(n>=1e7?1:2) + "M";
+    if (n >= 1e3) return "$" + Math.round(n/1e3) + "k";
+    return "$" + Math.round(n);
+  };
+  const fmtFull = n => "$" + Math.round(n).toLocaleString();
+  const shortAddr = a => a ? a.slice(0,6)+"…"+a.slice(-4) : "";
+  const ago = ts => {
+    const s = Math.max(0, Math.floor(Date.now()/1000 - ts));
+    if (s < 60) return s + "s ago";
+    if (s < 3600) return Math.floor(s/60) + "m ago";
+    if (s < 86400) return Math.floor(s/3600) + "h ago";
+    return Math.floor(s/86400) + "d ago";
+  };
+  const marketUrl = t => "https://polymarket.com/event/" + (t.eventSlug || t.slug);
+  const profileUrl = a => "https://polymarket.com/profile/" + a;
+  const traderName = t => t.pseudonym || t.name || shortAddr(t.proxyWallet);
+  const esc = s => (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+  // ---- fetch loop ----
+  async function poll(){
+    if (state.paused) return;
+    const url = new URL(API);
+    url.searchParams.set("limit", FETCH_LIMIT);
+    url.searchParams.set("takerOnly", "true");
+    url.searchParams.set("filterType", "CASH");
+    url.searchParams.set("filterAmount", state.threshold);
+    url.searchParams.set("_t", Date.now());
+    try {
+      const res = await fetch(url, {cache:"no-store"});
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      ingest(await res.json());
+      enrichStatuses();
+      queueWalletStats();
+      enrichCategories();
+      state.lastFetch = Date.now();
+      setUpdated();
+    } catch (e) {
+      document.getElementById("updated").textContent = "⚠ " + e.message + " — retrying";
+    }
+  }
+
+  function ingest(rows){
+    let added = 0;
+    for (let i = rows.length - 1; i >= 0; i--){
+      const t = rows[i];
+      const key = t.transactionHash + ":" + t.asset + ":" + t.side;
+      if (state.trades.has(key)) continue;
+      t._usd = t.size * t.price;
+      t._catH = classify(t);
+      t._fresh = state.trades.size > 0;
+      state.trades.set(key, t);
+      state.order.unshift(key);
+      added++;
+    }
+    while (state.order.length > MAX_BUFFER){ state.trades.delete(state.order.pop()); }
+    if (added) render();
+  }
+
+  // ---- render ----
+  function passesFilter(t){
+    if (state.side !== "ALL" && t.side !== state.side) return false;
+    if (!state.cats.has(catOf(t))) return false;
+    if (t._usd < state.threshold) return false;
+    if (state.maxSize != null && t._usd > state.maxSize) return false;
+    if (!state.statuses.has(marketStatus(t))) return false;
+    if (state.oddsMode !== "any"){
+      const prob = t.price * 100;
+      if (state.oddsMode === "below" && !(prob < state.oddsPivot)) return false;
+      if (state.oddsMode === "above" && !(prob >= state.oddsPivot)) return false;
+    }
+    if (state.nearHigh){
+      const s = walletStats.get(t.proxyWallet);
+      if (!s || !s.n || !s.max || t._usd < 0.75 * s.max) return false;
+    }
+    return true;
+  }
+
+  function render(){
+    const feed = document.getElementById("feed");
+    const visible = state.order.map(k => state.trades.get(k)).filter(passesFilter);
+    const vol = visible.reduce((a,t)=>a+t._usd,0);
+    document.getElementById("statCount").textContent = visible.length;
+    document.getElementById("statVol").textContent = fmtUSD(vol);
+    document.getElementById("feedCount").textContent = visible.length ? visible.length + " shown" : "";
+
+    if (!visible.length){
+      feed.innerHTML = '<div class="empty">No trades match these filters yet.<br>Lower the minimum size or widen categories — big-size windows can be quiet.</div>';
+    } else {
+      feed.innerHTML = visible.slice(0,150).map(rowHtml).join("");
+    }
+    visible.forEach(t => t._fresh = false);
+    renderBoard();
+  }
+
+  function rowHtml(t){
+    const sideCls = t.side === "BUY" ? "buy" : "sell";
+    const whopper = t._usd >= 250000 ? " whopper" : "";
+    const fresh = t._fresh ? " fresh" : "";
+    const cents = Math.round(t.price*100);
+    let tag = "";
+    if (t.side === "BUY" && t.price <= 0.20) tag = '<span class="tag longshot" title="Large buy at long odds — high conviction">LONGSHOT</span>';
+    else if (t.side === "BUY" && t.price >= 0.90) tag = '<span class="tag fav" title="Buying a near-certain outcome">FAVORITE</span>';
+    return `<div class="row ${sideCls}${whopper}${fresh}">
+      <div class="sidebox">
+        <span class="side ${sideCls}">${t.side}</span>
+        <span class="ago">${ago(t.timestamp)}</span>
+      </div>
+      <div class="mid">
+        <div class="mkt" title="${esc(t.title)}">${esc(t.title) || "Untitled market"}</div>
+        <div class="meta">
+          <span class="pill out">${esc(t.outcome)}</span>
+          <span class="pill">${catOf(t)}</span>
+          ${marketStatus(t) === "resolved" ? '<span class="pill resolved">Resolved</span>' : ""}
+          ${tag}
+          <a class="trader" href="${profileUrl(t.proxyWallet)}" target="_blank" title="${t.proxyWallet}">${esc(traderName(t))}</a>
+          ${(() => { const s = walletStats.get(t.proxyWallet); return s && s.n ? '<span class="avg" title="From this trader\'s last ' + s.n + ' trades">(avg ' + fmtUSD(s.avg) + ', low ' + fmtUSD(s.min) + ', high ' + fmtUSD(s.max) + ')</span>' : ""; })()}
+        </div>
+      </div>
+      <div class="right">
+        <div class="usd ${sideCls}" title="${fmtFull(t._usd)} · ${Math.round(t.size).toLocaleString()} shares @ ${cents}¢">${fmtUSD(t._usd)}</div>
+        <div class="price">${cents}¢ · ${cents}% implied</div>
+        <a class="trade-btn" href="${marketUrl(t)}" target="_blank">View market →</a>
+      </div>
+    </div>`;
+  }
+
+  function renderBoard(){
+    const board = document.getElementById("board");
+    const agg = new Map();
+    for (const k of state.order){
+      const t = state.trades.get(k);
+      if (!state.cats.has(catOf(t))) continue;
+      let a = agg.get(t.proxyWallet);
+      if (!a){ a = {wallet:t.proxyWallet, name:traderName(t), buy:0, sell:0, n:0}; agg.set(t.proxyWallet, a); }
+      a[t.side === "BUY" ? "buy" : "sell"] += t._usd;
+      a.n++;
+    }
+    const top = [...agg.values()]
+      .map(a => (a.total = a.buy + a.sell, a.net = a.buy - a.sell, a))
+      .sort((x,y)=>y.total-x.total).slice(0,12);
+    if (!top.length){ board.innerHTML = '<div class="empty">No wallets yet.</div>'; return; }
+    board.innerHTML = top.map((a,i) => {
+      const netCls = a.net >= 0 ? "netbuy" : "netsell";
+      const netTxt = (a.net>=0?"net buy ":"net sell ") + fmtUSD(Math.abs(a.net));
+      return `<a class="lrow" href="${profileUrl(a.wallet)}" target="_blank">
+        <div class="rank">${i+1}</div>
+        <div>
+          <div class="lname">${esc(a.name)}</div>
+          <div class="lsub">${a.n} trade${a.n>1?"s":""} · <span class="${netCls}">${netTxt}</span></div>
+        </div>
+        <div class="lusd" title="${fmtFull(a.total)}">${fmtUSD(a.total)}</div>
+      </a>`;
+    }).join("");
+  }
+
+  function setUpdated(){
+    document.getElementById("updated").textContent = state.lastFetch ? "updated " + ago(Math.floor(state.lastFetch/1000)) : "…";
+  }
+  setInterval(() => { setUpdated(); render(); }, 1000);
+
+  function restartTimer(){
+    if (state.timer) clearInterval(state.timer);
+    state.timer = setInterval(poll, state.intervalSec * 1000);
+  }
+
+  function applyMin(v){
+    state.threshold = Math.max(0, v|0);
+    // highlight matching preset (if any)
+    [...document.querySelectorAll("#sizePresets button")].forEach(b => b.classList.toggle("on", +b.dataset.v === state.threshold));
+    // server-side filter changed -> reset buffer and refetch
+    state.trades.clear(); state.order = [];
+    render(); poll();
+  }
+
+  // ---- controls wiring ----
+  const presetsEl = document.getElementById("sizePresets");
+  presetsEl.innerHTML = PRESETS.map(v => `<button data-v="${v}" class="${v===state.threshold?"on":""}">${fmtUSD(v)}</button>`).join("");
+  presetsEl.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    document.getElementById("minInput").value = "";
+    applyMin(+b.dataset.v);
+  });
+
+  const minInput = document.getElementById("minInput");
+  const commitMin = () => { if (minInput.value !== "") applyMin(+minInput.value); };
+  minInput.addEventListener("change", commitMin);
+  minInput.addEventListener("keydown", e => { if (e.key === "Enter") commitMin(); });
+
+  const maxInput = document.getElementById("maxInput");
+  const commitMax = () => { state.maxSize = maxInput.value === "" ? null : Math.max(0, +maxInput.value); render(); };
+  maxInput.addEventListener("change", commitMax);
+  maxInput.addEventListener("keydown", e => { if (e.key === "Enter") commitMax(); });
+
+  const catsEl = document.getElementById("cats");
+  catsEl.innerHTML = CAT_LIST.map(c => `<span class="chip on" data-cat="${c}">${c}</span>`).join("");
+  catsEl.addEventListener("click", e => {
+    const chip = e.target.closest(".chip"); if (!chip) return;
+    const c = chip.dataset.cat;
+    if (state.cats.has(c)) state.cats.delete(c); else state.cats.add(c);
+    chip.classList.toggle("on");
+    render();
+  });
+
+  const statusEl = document.getElementById("statusChips");
+  statusEl.addEventListener("click", e => {
+    const chip = e.target.closest(".chip"); if (!chip) return;
+    const s = chip.dataset.status;
+    if (state.statuses.has(s)) state.statuses.delete(s); else state.statuses.add(s);
+    chip.classList.toggle("on");
+    render();
+  });
+
+  document.getElementById("oddsSeg").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    state.oddsMode = b.dataset.mode;
+    [...e.currentTarget.children].forEach(x => x.classList.toggle("on", x === b));
+    render();
+  });
+
+  const nearHighChip = document.getElementById("nearHighChip");
+  nearHighChip.addEventListener("click", () => {
+    state.nearHigh = !state.nearHigh;
+    nearHighChip.classList.toggle("on", state.nearHigh);
+    queueWalletStats();
+    render();
+  });
+
+  document.getElementById("sideSeg").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    state.side = b.dataset.side;
+    [...e.currentTarget.children].forEach(x => x.classList.toggle("on", x === b));
+    render();
+  });
+
+  document.getElementById("interval").addEventListener("change", e => {
+    state.intervalSec = +e.target.value; restartTimer();
+  });
+
+  const liveBtn = document.getElementById("liveBtn");
+  liveBtn.addEventListener("click", () => {
+    state.paused = !state.paused;
+    liveBtn.classList.toggle("paused", state.paused);
+    document.getElementById("liveTxt").textContent = state.paused ? "PAUSED" : "LIVE";
+    if (!state.paused) poll();
+  });
+
+  function setTheme(mode){
+    document.documentElement.dataset.theme = mode;
+    try { localStorage.setItem("ww_theme", mode); } catch(e){}
+    [...document.querySelectorAll("#themeSeg button")].forEach(b => b.classList.toggle("on", b.dataset.theme === mode));
+  }
+  document.getElementById("themeSeg").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return; setTheme(b.dataset.theme);
+  });
+  setTheme((() => { try { return localStorage.getItem("ww_theme") || "dark"; } catch(e){ return "dark"; } })());
+
+  poll();
+  restartTimer();
+})();
+</script>
+</body>
+</html>
