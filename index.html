@@ -164,10 +164,6 @@
     </div>
     <div class="break"></div>
     <div class="ctl">
-      <label>Category</label>
-      <div class="chips" id="cats"></div>
-    </div>
-    <div class="ctl">
       <label>Implied odds</label>
       <div class="seg" id="oddsSeg">
         <button data-mode="any" class="on">Any</button>
@@ -228,7 +224,6 @@
     threshold: 50000,
     maxSize: null,
     side: "ALL",
-    cats: new Set(["Politics","Sports","Crypto","Business","Tech","Culture","World","Science","Other"]),
     statuses: new Set(["active","resolved"]),
     oddsMode: "any",
     oddsPivot: 50,
@@ -373,7 +368,6 @@
     if (RE.sports.test(s)) return "Sports";
     return "Other";
   }
-  const CAT_LIST = ["Politics","Sports","Crypto","Business","Tech","Culture","World","Science","Other"];
 
   // ---- real category from Polymarket event tags (Gamma /events) ----
   const catMap = new Map();   // eventSlug -> category string | null (looked up, no tag match)
@@ -495,7 +489,6 @@
   // ---- render ----
   function passesFilter(t){
     if (state.side !== "ALL" && t.side !== state.side) return false;
-    if (!state.cats.has(catOf(t))) return false;
     if (t._usd < state.threshold) return false;
     if (state.maxSize != null && t._usd > state.maxSize) return false;
     if (!state.statuses.has(marketStatus(t))) return false;
@@ -520,7 +513,7 @@
     document.getElementById("feedCount").textContent = visible.length ? visible.length + " shown" : "";
 
     if (!visible.length){
-      feed.innerHTML = '<div class="empty">No trades match these filters yet.<br>Lower the minimum size or widen categories — big-size windows can be quiet.</div>';
+      feed.innerHTML = '<div class="empty">No trades match these filters yet.<br>Lower the minimum size — big-size windows can be quiet.</div>';
     } else {
       feed.innerHTML = visible.slice(0,150).map(rowHtml).join("");
     }
@@ -571,7 +564,6 @@
     const agg = new Map();
     for (const k of state.order){
       const t = state.trades.get(k);
-      if (!state.cats.has(catOf(t))) continue;
       let a = agg.get(t.proxyWallet);
       if (!a){ a = {wallet:t.proxyWallet, name:traderName(t), buy:0, sell:0, n:0}; agg.set(t.proxyWallet, a); }
       a[t.side === "BUY" ? "buy" : "sell"] += t._usd;
@@ -632,16 +624,6 @@
   const commitMax = () => { state.maxSize = maxInput.value === "" ? null : Math.max(0, +maxInput.value); render(); };
   maxInput.addEventListener("change", commitMax);
   maxInput.addEventListener("keydown", e => { if (e.key === "Enter") commitMax(); });
-
-  const catsEl = document.getElementById("cats");
-  catsEl.innerHTML = CAT_LIST.map(c => `<span class="chip on" data-cat="${c}">${c}</span>`).join("");
-  catsEl.addEventListener("click", e => {
-    const chip = e.target.closest(".chip"); if (!chip) return;
-    const c = chip.dataset.cat;
-    if (state.cats.has(c)) state.cats.delete(c); else state.cats.add(c);
-    chip.classList.toggle("on");
-    render();
-  });
 
   const statusEl = document.getElementById("statusChips");
   statusEl.addEventListener("click", e => {

@@ -44,16 +44,11 @@ Pages). It's one static file — nothing to configure.
 - **Minimum trade size** — preset buttons ($10k / $25k / $50k / $100k / $250k / $500k) plus a
   **custom** field for any exact value; default $50k. Changing it re-queries the API server-side.
 - **Maximum (optional)** — cap the upper end to see a size band (e.g. only $40k–$100k trades).
-- **Implied odds** (row 2, next to Category) — Any / Under 50% / Over 50% buttons. A trade's price
+- **Implied odds** — Any / Under 50% / Over 50% buttons. A trade's price
   *is* its implied probability, so **Under 50% + Buys** surfaces the contrarian/longshot bets. Filters
   compose with everything else.
 - **Side** — All / Buys / Sells. (Note: `SELL @ 100¢` is usually someone cashing out a resolved
   position, not a fresh directional bet — filter to **Buys** to see new convictions.)
-- **Category** — Politics / Sports / Crypto / Business / Tech / Culture / World / Science / Other
-  chips. Derived from each market's **real Polymarket tags** (Gamma `/events`, batched + cached), not
-  guesswork; trades with no event, or before their tags load, fall back to a keyword guess. Polymarket
-  has no fixed category list (it's a large tag cloud), so these mirror its main nav; "Other" is the
-  catch-all. Also scopes the leaderboard.
 - **Market** — ✓ Active / ✓ Resolved checkmarks. Each trade's market is looked up on the Polymarket
   **Gamma API** (`closed` flag): uncheck **Resolved** to hide settled markets (the `SELL @ 100¢`
   redemptions), leaving only live, still-tradeable markets. Resolved rows carry an amber "Resolved" tag.
@@ -65,10 +60,12 @@ Pages). It's one static file — nothing to configure.
 
 ## Notes & caveats
 
+- The feed covers **every market** — the only server-side filter is trade size (CASH notional).
+  There's no market or category restriction, so all of Polymarket's large trades flow through.
 - USD value = `size × price`. Size is share count; price is the 0–1 probability (also the cost in
   dollars per share and the implied odds).
 - The API is CDN-cached ~5 min; each poll appends a cache-buster so you get fresh data.
-- Categories are keyword heuristics — tweak the `RE` regexes in `index.html` if something lands in
-  the wrong bucket.
+- Categories are keyword/tag heuristics that now only set the **label** shown on each trade (they
+  no longer filter the feed); tweak the `CAT_RULES` / `RE` regexes in `index.html` to relabel.
 - **Not financial advice.** "Following the whale" assumes they know something. Sometimes they're just
   hedging, market-making, or wrong.
