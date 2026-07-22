@@ -166,8 +166,8 @@
     <div class="ctl">
       <label>Implied odds</label>
       <div class="seg" id="oddsSeg">
-        <button data-mode="any" class="on">Any</button>
-        <button data-mode="below">Under 50%</button>
+        <button data-mode="any">Any</button>
+        <button data-mode="below" class="on">Under 50%</button>
         <button data-mode="above">Over 50%</button>
       </div>
     </div>
@@ -175,13 +175,13 @@
       <label>Market</label>
       <div class="chips" id="statusChips">
         <span class="chip check on" data-status="active">Active</span>
-        <span class="chip check on" data-status="resolved">Resolved</span>
+        <span class="chip check" data-status="resolved">Resolved</span>
       </div>
     </div>
     <div class="ctl">
       <label>Trader</label>
       <div class="chips">
-        <span class="chip check" id="nearHighChip" title="Only trades at or within 25% of this trader's recent high — i.e. their biggest bets">Near their high</span>
+        <span class="chip check on" id="nearHighChip" title="Only trades at or within 25% of this trader's recent high — i.e. their biggest bets">Near their high</span>
       </div>
     </div>
     <div class="ctl">
@@ -221,13 +221,13 @@
   const PRESETS = [10000, 25000, 50000, 100000, 250000, 500000];
 
   const state = {
-    threshold: 50000,
+    threshold: 100000,
     maxSize: null,
     side: "ALL",
-    statuses: new Set(["active","resolved"]),
-    oddsMode: "any",
+    statuses: new Set(["active"]),
+    oddsMode: "below",
     oddsPivot: 50,
-    nearHigh: false,
+    nearHigh: true,
     intervalSec: 15,
     paused: false,
     trades: new Map(),
