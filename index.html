@@ -238,7 +238,9 @@
 
   // ---- market status (active vs resolved) via Gamma API ----
   const GAMMA = "https://gamma-api.polymarket.com/markets";
-  const statusMap = new Map();   // conditionId -> "active" | "resolved"
+  const statusMap = new Map();    // conditionId -> "active" | "resolved"
+  const statusTime = new Map();   // conditionId -> last lookup ms (to re-check "active")
+  const STATUS_TTL = 10 * 60 * 1000;   // active markets re-checked every 10 min ("resolved" is final)
   let enriching = false;
   const marketStatus = t => statusMap.get(t.conditionId) === "resolved" ? "resolved" : "active";
 
@@ -255,6 +257,13 @@
 
   async function enrichStatuses(){
     if (enriching) return;
+    // expire stale "active" entries so resolved markets eventually show as Resolved
+    const now = Date.now();
+    for (const [cid, s] of statusMap){
+      if (s === "active" && now - (statusTime.get(cid) || 0) > STATUS_TTL){
+        statusMap.delete(cid); statusTime.delete(cid);
+      }
+    }
     const need = [], seen = new Set();
     for (const k of state.order){
       const cid = state.trades.get(k).conditionId;
@@ -268,12 +277,12 @@
         const chunk = need.slice(i, i + 40);
         const active = await gammaLookup(chunk, false);          // open markets
         const activeSet = new Set(active.map(m => m.conditionId));
-        chunk.forEach(c => { if (activeSet.has(c)) statusMap.set(c, "active"); });
+        chunk.forEach(c => { if (activeSet.has(c)){ statusMap.set(c, "active"); statusTime.set(c, Date.now()); } });
         const rest = chunk.filter(c => !statusMap.has(c));
         if (rest.length){
           const closed = await gammaLookup(rest, true);          // resolved markets
           const closedSet = new Set(closed.map(m => m.conditionId));
-          rest.forEach(c => statusMap.set(c, closedSet.has(c) ? "resolved" : "active"));
+          rest.forEach(c => { statusMap.set(c, closedSet.has(c) ? "resolved" : "active"); statusTime.set(c, Date.now()); });
         }
       }
       render();
@@ -448,7 +457,7 @@
 
   // ---- fetch loop ----
   async function poll(){
-    if (state.paused) return;
+    if (state.paused || document.hidden) return;   // no wasted API calls in background tabs
     const url = new URL(API);
     url.searchParams.set("limit", FETCH_LIMIT);
     url.searchParams.set("takerOnly", "true");
@@ -532,7 +541,7 @@
     return `<div class="row ${sideCls}${whopper}${fresh}">
       <div class="sidebox">
         <span class="side ${sideCls}">${t.side}</span>
-        <span class="ago">${ago(t.timestamp)}</span>
+        <span class="ago" data-ts="${t.timestamp}">${ago(t.timestamp)}</span>
       </div>
       <div class="mid">
         <div class="mkt" title="${esc(t.title)}">${esc(t.title) || "Untitled market"}</div>
@@ -590,7 +599,11 @@
   function setUpdated(){
     document.getElementById("updated").textContent = state.lastFetch ? "updated " + ago(Math.floor(state.lastFetch/1000)) : "…";
   }
-  setInterval(() => { setUpdated(); render(); }, 1000);
+  // 1s tick: refresh only the "Xs ago" labels in place — no full DOM rebuild
+  setInterval(() => {
+    setUpdated();
+    for (const el of document.querySelectorAll("#feed .ago")) el.textContent = ago(+el.dataset.ts);
+  }, 1000);
 
   function restartTimer(){
     if (state.timer) clearInterval(state.timer);
@@ -677,6 +690,9 @@
     const b = e.target.closest("button"); if (!b) return; setTheme(b.dataset.theme);
   });
   setTheme((() => { try { return localStorage.getItem("ww_theme") || "dark"; } catch(e){ return "dark"; } })());
+
+  // refresh immediately when the tab becomes visible again
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
 
   poll();
   restartTimer();
